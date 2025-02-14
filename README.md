@@ -1,105 +1,114 @@
-# Aplicación de Cifrado y Eliminación Segura
+# Secure Encryption and Deletion Application
 
-Esta aplicación de Python te permite cifrar archivos y directorios de forma segura utilizando la biblioteca Fernet y eliminarlos permanentemente con el comando 'shred'. Es útil para proteger datos confidenciales y garantizar que no puedan ser recuperados.
+This Python application allows you to securely encrypt files and directories using the **Fernet** library and permanently delete them with the **shred** command. It is useful for protecting sensitive data and ensuring it cannot be recovered.
 
-## Características Principales
+## **Main Features**
 
-- **Cifrado Seguro:** Utiliza la biblioteca Fernet para cifrar archivos y directorios con una clave proporcionada.
+- **Secure Encryption:** Uses the Fernet library to encrypt files and directories with a user-provided key.
+- **Permanent Deletion:** Securely removes files and directories using the **shred** command.
+- **Recursive Processing:** Supports encrypting and deleting files within directories recursively.
+- **User Confirmation Options:** Can be configured to require user confirmation before encrypting or deleting files.
 
-- **Eliminación Segura:** Elimina permanentemente archivos y directorios con el comando 'shred', garantizando la eliminación segura de datos.
-
-- **Recursividad:** La aplicación puede cifrar y eliminar archivos en directorios de forma recursiva.
-
-- **Opciones de Confirmación:** Puedes configurar la aplicación para requerir confirmación del usuario antes de cifrar o eliminar archivos.
-
-## Requisitos
+## **Requirements**
 
 - Python 3.x
-- Bibliotecas: cryptography, hashlib
+- Required libraries: `cryptography`, `hashlib`
 
-## Uso
+## **Usage**
 
-### Uso de main.py y guardian.sh
+### **Using `main.py` and `guardian.sh`**
 
-El archivo `main.py` es el punto de entrada para ejecutar la aplicación. Puedes utilizarlo para ejecutar los comandos de cifrado, descifrado y eliminación segura desde la línea de comandos. Además, hay un script bash llamado `guardian.sh`, que simplifica la ejecución de comandos en la aplicación. Puedes usar `guardian.sh` para ejecutar comandos fácilmente.
+The `main.py` file is the main entry point for executing the application. It allows you to run encryption, decryption, and secure deletion commands from the command line.
 
-Para ejecutar un comando con guardian.sh, utiliza el siguiente formato:
+Additionally, the `guardian.sh` Bash script simplifies command execution. You can use it for quick access to application commands.
+
+To execute a command using `guardian.sh`, use the following format:
 
 ```sh
 ./guardian.sh [COMMAND] [OPTION1] [OPTION2]
 ```
 
-Por ejemplo, para cifrar un archivo:
+Example: Encrypt a file
 
 ```sh
-./guardian.sh encrypt /ruta/al/archivo clave_secreta
+./guardian.sh encrypt /path/to/file secret_key
 ```
 
+---
 
-### Cifrado de Archivos y Directorios
+### **Encrypting Files and Directories**
 
-Puedes cifrar archivos y directorios utilizando el comando `encrypt`. La función recorre la ruta especificada y cifra los archivos encontrados. Si la ruta es un directorio, cifrará todos los archivos y subdirectorios de forma recursiva.
+You can encrypt files and directories using the `encrypt` command. The function processes the specified path and encrypts all files found. If the path is a directory, it will encrypt all files and subdirectories recursively.
 
-Ejemplo:
+**Example:**
 
 ```py
-key = 'clave_secreta'
-ruta = '/ruta/al/archivo_o_directorio'
-encrypt(ruta, key)
+key = 'secret_key'
+path = '/path/to/file_or_directory'
+encrypt(path, key)
 ```
 
-### Descifrado de Archivos y Directorios
+---
 
-Para descifrar archivos cifrados, utiliza la función `decrypt`. Al igual que con el cifrado, esta función puede recorrer directorios de forma recursiva.
+### **Decrypting Files and Directories**
 
-Ejemplo:
+To decrypt encrypted files, use the `decrypt` function. Like encryption, this function can process directories recursively.
+
+**Example:**
 
 ```py
-key = 'clave_secreta'
-ruta = '/ruta/al/archivo_o_directorio'
-decrypt(ruta, key)
+key = 'secret_key'
+path = '/path/to/file_or_directory'
+decrypt(path, key)
 ```
 
-### Eliminación Segura
+---
 
-La eliminación segura de archivos y directorios se realiza con la función `secure_delete`. Esta función utiliza el comando 'shred' y debe ejecutarse con permisos de administrador (sudo) para garantizar una eliminación segura. Puedes configurar si se requiere confirmación del usuario antes de la eliminación.
+### **Secure File Deletion**
 
-Ejemplo:
+Files and directories can be securely deleted using the `secure_delete` function. This function relies on the **shred** command and should be run with administrator permissions (`sudo`) to ensure secure deletion. You can configure whether user confirmation is required before deletion.
+
+**Example:**
 
 ```py
-ruta = '/ruta/al/archivo_o_directorio'
-secure_delete(ruta)
+path = '/path/to/file_or_directory'
+secure_delete(path)
 ```
 
-### Cifrado y Descifrado de Texto
+---
 
-También puedes cifrar y descifrar texto utilizando las funciones `encrypt_text` y `decrypt_text`. Estas funciones son útiles para proteger mensajes y datos confidenciales.
+### **Encrypting and Decrypting Text**
 
-Ejemplo:
+You can also encrypt and decrypt text using the `encrypt_text` and `decrypt_text` functions. These functions are useful for protecting messages and sensitive data.
+
+**Example:**
 
 ```py
-key = 'clave_secreta'
-texto = 'Este es un mensaje confidencial.'
-texto_cifrado = encrypt_text(texto, key)
+key = 'secret_key'
+text = 'This is a confidential message.'
+encrypted_text = encrypt_text(text, key)
 ```
 
-## Configuración
+---
 
-Asegúrate de instalar las bibliotecas requeridas. Puedes hacerlo con el siguiente comando:
+## **Setup**
+
+Ensure the required libraries are installed using the following command:
 
 ```sh
 pip install -r requirements.txt
 ```
 
-Asegúrate de que tienes permisos de administrador (sudo) para utilizar la eliminación segura.
+If you plan to use **secure deletion**, make sure you have administrator (`sudo`) privileges.
 
-## Contribuciones
+---
 
-Si deseas contribuir a esta aplicación o informar sobre problemas, no dudes en abrir un problema o enviar una solicitud de extracción en el repositorio de GitHub.
+## **Contributing**
 
-## Licencia
+If you'd like to contribute to this project or report an issue, feel free to open an issue or submit a pull request on GitHub.
 
-Esta aplicación se distribuye bajo la Licencia MIT.
+---
 
+## **License**
 
-
+This application is distributed under the **MIT License**.

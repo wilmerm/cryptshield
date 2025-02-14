@@ -5,60 +5,54 @@ from commands import (
     encrypt,
     encrypt_text,
     secure_delete,
+    GuardianError,
 )
 
-
-# Define un diccionario de comandos y sus funciones asociadas
-command_map = {
-    'delete': secure_delete,
-    'encrypt': encrypt,
-    'decrypt': decrypt,
-    'encrypt_text': encrypt_text,
-    'decrypt_text': decrypt_text,
+# Mapping commands to their respective functions
+COMMAND_MAP = {
+    "delete": secure_delete,
+    "encrypt": encrypt,
+    "decrypt": decrypt,
+    "encrypt_text": encrypt_text,
+    "decrypt_text": decrypt_text,
 }
 
 
 def show_help():
-    """
-    Muestra la información de uso del programa.
-    """
-    print('Uso: python secure_app.py [COMMAND] [OPTIONS]')
-    print('Comandos disponibles:')
-    for command, description in command_map.items():
-        print(f'>> python secure_app.py {command} {description.__doc__.strip()}')
+    """Displays usage instructions."""
+    print("Usage: python secure_app.py [COMMAND] [OPTIONS]")
+    print("Available commands:")
+    for command, function in COMMAND_MAP.items():
+        print(f">> python secure_app.py {command} - {function.__doc__.strip()}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(f'Faltan argumentos. {sys.argv=}')
+        print(f"Missing arguments. {sys.argv=}")
         show_help()
-        exit(1)
-
-    if sys.argv[1] in ('help', 'h'):
-        print('Mostrando ayuda:')
-        show_help()
-        exit(0)
+        sys.exit(1)
 
     command_name = sys.argv[1]
     options = sys.argv[2:]
 
-    if command_name not in command_map:
-        print(f'Comando "{command_name}" no válido.')
+    if command_name in ("help", "h"):
+        print("Showing help:")
         show_help()
-        exit(1)
+        sys.exit(0)
 
-    command = command_map[command_name]
-
-    # Verifica si se proporcionan suficientes argumentos
-    if len(options) < len(command.__annotations__):
-        print(f'Faltan argumentos. Se requieren {len(command.__annotations__)} argumentos.')
+    if command_name not in COMMAND_MAP:
+        print(f'Invalid command: "{command_name}".')
         show_help()
-        exit(1)
+        sys.exit(1)
 
-    # Ejecuta el comando con los argumentos proporcionados
+    command = COMMAND_MAP[command_name]
+
+    # Execute command
     try:
-        command(*options)
-    except Exception as e:
-        print(f'Error al ejecutar el comando "{command_name}": {str(e)}')
-
+        result = command(*options)
+        if result is not None:
+            print(result)
+    except GuardianError as e:
+        print(f'Error executing command "{command_name}": {str(e)}')
+        sys.exit(1)
 

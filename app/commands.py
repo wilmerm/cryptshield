@@ -1,154 +1,201 @@
 import os
+import subprocess
 import hashlib
 import base64
+import logging
 from cryptography.fernet import Fernet, InvalidToken
 
 
-def secure_delete(path: str, auto=False,  verbose=True):
+logger = logging.getLogger(__name__)
+
+
+ENCRYPTED = 'encrypted'
+ZIPENCRYPTED = 'zipencrypted'
+
+
+class GuardianError(Exception):
+    pass
+
+
+def secure_delete(path: str):
     """
-    Elimina de forma segura los archivos y directorios en la ruta especificada.
+    Securely deletes a file or directory at the specified path.
 
-    Parámetros:
-        * `path` (str): La ruta al archivo o directorio que se desea eliminar.
-            - Si la ruta es un directorio, se eliminará cada archivo y subdirectorio.
-            - Si la ruta es un archivo, se sobrescribirá su contenido y se borrará.
-        * `auto` (bool, Default False): Si es True, no se solicitará confirmación al usuario.
-        * `verbose` (bool, Default True): Añade la opción 'v' al comando shred.
+    Args:
+        path (str): The path to the file or directory to be securely deleted.
 
-    Nota: Esta función utiliza el comando 'shred' y debe ejecutarse con permisos
-    de administrador (sudo) para garantizar una eliminación segura.
+    This function ensures that the file or directory is permanently deleted u
+    sing a secure method. If the path points to a directory, it recursively
+    deletes all files and subdirectories within it. For files, it uses the
+    `shred` command to overwrite the file multiple times before deletion.
     """
-    if os.path.isdir(path):
-        listdir = os.listdir(path)
+    if not os.path.exists(path):
+        logger.error(f"Path '{path}' does not exist.")
+        return
 
-        if not auto:
-            prompt = f'¿Seguro desea eliminar permanentemente todos los archivos del directorio "{path}"? N/y: '
-            if not confirm(prompt):
-                return
-
-        for filename in listdir:
-            _path = os.path.join(path, filename)
-            secure_delete(_path, auto=True, verbose=verbose)
-
-    elif os.path.isfile(path) or os.path.islink(path):
-        if not auto:
-            prompt = f'¿Seguro desea eliminar permanentemente el archivo "{path}"? N/y: '
-            if not confirm(prompt):
-                return
-
-        shred_options = 'fuvxz'
-
-        if not verbose:
-            shred_options = shred_options.replace('v', '')
-
-        os.system(f'sudo shred -{shred_options} "{path}"')
-
-    else:
-        raise ValueError(f'"{path}" no es un archivo o directorio válido.')
-
-
-def encrypt(path: str, key: str, delete=True):
-    """
-    Cifra archivos en una ruta dada utilizando una clave proporcionada.
-
-    Parámetros:
-        * `path` (str): La ruta al archivo o directorio que se desea cifrar.
-        * `key` (str): La clave que se utilizará para cifrar los archivos.
-        * `delete` (bool): Si es True, también eliminará el archivo original.
-
-    1. La función recorre la ruta especificada y cifra los archivos encontrados.
-    Si la ruta es un directorio, cifrará todos los archivos y subdirectorios
-    de forma recursiva.
-
-    2. Los archivos cifrados se guardarán con la extensión '.encrypted'.
-
-    3. La clave debe ser una cadena (str) válida.
-
-    Ejemplo de Uso:
-    ```py
-    key = 'clave_secreta'
-    ruta = '/ruta/al/archivo_o_directorio'
-    encrypt(ruta, key)
-    ```
-    """
     if os.path.isdir(path):
         for filename in os.listdir(path):
             _path = os.path.join(path, filename)
-            encrypt(_path, key, delete)
+            secure_delete(_path)
+
+        try:
+            os.rmdir(path)
+        except OSError as e:
+            logger.error(f"Error deleting directory '{path}': {e}")
+
+    else:
+        try:
+            subprocess.run(["shred", "-f", "-u", "-n", "3", "-z", path], check=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error deleting file '{path}': {e}")
+
+
+def encrypt(path: str, key: str, delete: bool = True):
+    """
+    Encrypts files at a given path using a provided key.
+
+    Args:
+        path (str): The path to the file or directory to be encrypted.
+        key (str): The key to be used for encryption.
+        delete (bool, optional): If True, the original file will be deleted
+            after encryption. Defaults to True.
+
+    This function recursively encrypts all files in the specified directory.
+    Encrypted files are saved with the '.encrypted' extension. If the path is a
+    directory, it will be compressed into a ZIP file before encryption.
+
+    Example:
+        ```
+        key = 'secret_key'
+        path = '/path/to/file_or_directory'
+        encrypt(path, key)
+        ```
+    """
+
+    if delete and has_non_writable(path):
+        if not confirm(f'At least one file in "{path}" is not writable. Continue? [y/N] '):
+            return
+
+    if os.path.isdir(path):
+
+        # First, compress the directory into a ZIP file
+        logger.info(f'Compressing directory "{path}"...')
+        subprocess.run(['zip', '-r', f'{path}.zip', path], check=True)
+
+        # Encrypt the ZIP file
+        encrypt(f'{path}.zip', key, delete=False)
+
+        # Rename the encrypted ZIP file to '.zipencrypted'.
+        os.rename(f'{path}.zip.{ENCRYPTED}', f'{path}.{ZIPENCRYPTED}')
+
+        # Delete the original directory and ZIP file
+        logger.info(f'Deleting "{path}.zip"...')
+        secure_delete(f'{path}.zip')
+        if delete:
+            logger.info(f'Deleting "{path}"...')
+            secure_delete(path)
+
     elif os.path.isfile(path) or os.path.islink(path):
-        print(f'Cifrando "{path}"...')
+        logger.info(f'Encrypting "{path}"...')
         with open(path, 'rb') as file:
             text = file.read()
             encrypted_text = encrypt_text(text, key)
-            with open(path + '.encrypted', 'wb') as encrypted_file:
+            with open(path + f'.{ENCRYPTED}', 'wb') as encrypted_file:
                 encrypted_file.write(encrypted_text)
-        # Se procede a eliminar el archivo original (si aplica)
+
         if delete:
-            print(f'Eliminando "{path}"...')
-            secure_delete(path, auto=True, verbose=False)
+            logger.info(f'Deleting "{path}"...')
+            secure_delete(path)
+
     else:
-        raise ValueError(f'"{path}" no es un archivo o directorio válido.')
+        raise GuardianError(f'"{path}" is not a valid file or directory.')
 
 
-def decrypt(path: str, key: str, delete=True):
+def decrypt(path: str, key: str, delete: bool = True):
     """
-    Descifra archivos cifrados en una ruta dada utilizando una clave proporcionada.
+    Decrypts encrypted files at a given path using a provided key.
 
-    Parámetros:
-        * `path` (str): La ruta al archivo o directorio que se desea descifrar.
-        * `key` (str): La clave que se utilizará para descifrar los archivos.
-        * `delete` (bool): Si es True, también eliminará el archivo cifrado.
+    Args:
+        path (str): The path to the file or directory to be decrypted.
+        key (str): The key to be used for decryption.
+        delete (bool, optional): If True, the encrypted file will be deleted
+            after decryption. Defaults to True.
 
-    La función recorre la ruta especificada y descifra los archivos cifrados que
-    encuentre. Si la ruta es un directorio, descifrará todos los archivos y
-    subdirectorios de forma recursiva.
+    This function recursively decrypts all files in the specified directory.
+    If the path is a directory, it will decrypt all files within it. Files with
+    the '.zipencrypted' extension will be decompressed after decryption.
 
-    Ejemplo de Uso:
-    ```py
-    key = 'clave_secreta'
-    ruta = '/ruta/al/archivo_o_directorio'
-    decrypt(ruta, key)
-    ```
+    Example:
+        ```
+        key = 'secret_key'
+        path = '/path/to/encrypted_file_or_directory'
+        decrypt(path, key)
+        ```
     """
+    if delete and has_non_writable(path):
+        if not confirm(f'At least one file in "{path}" is not writable. Continue? [y/N] '):
+            return
+
     if os.path.isdir(path):
         for filename in os.listdir(path):
             _path = os.path.join(path, filename)
-            decrypt(_path, key)
+            decrypt(_path, key, delete=delete)
+
     elif os.path.isfile(path) or os.path.islink(path):
-        print(f'Descifrando "{path}"...')
+        logger.info(f'Decrypting "{path}"...')
         with open(path, 'rb') as encrypted_file:
             encrypted_text = encrypted_file.read()
-            text = decrypt_text(encrypted_text, key)
-            with open(path.replace('.encrypted', '', 1), 'wb') as file:
-                file.write(text)
-        # Se procede a eliminar el archivo cifrado (si aplica)
-        if delete:
-            print(f'Eliminando "{path}"...')
-            secure_delete(path, auto=True, verbose=False)
+            text = decrypt_text(encrypted_text, key, to_str=False)
+
+            # Check if the file is a ZIP file that was encrypted
+            if path.endswith(f'.{ZIPENCRYPTED}'):
+                # Save the decrypted ZIP file
+                with open(path.replace(f'.{ZIPENCRYPTED}', '.zip', 1), 'wb') as file:
+                    file.write(text)
+
+                # Decompress the ZIP file
+                logger.info(f'Decompressing "{path.replace(f".{ZIPENCRYPTED}", ".zip", 1)}"...')
+                subprocess.run(['unzip', path.replace(f'.{ZIPENCRYPTED}', '.zip', 1)], check=True)
+
+                # Delete the encrypted ZIP file
+                if delete:
+                    logger.info(f'Deleting "{path}"...')
+                    secure_delete(path.replace(f'.{ZIPENCRYPTED}', '.zip', 1))
+                    secure_delete(path)
+            else:
+                with open(path.replace(f'.{ENCRYPTED}', '', 1), 'wb') as file:
+                    file.write(text)
+
+                # Delete the encrypted file
+                if delete:
+                    logger.info(f'Deleting "{path}"...')
+                    secure_delete(path)
+
     else:
-        raise ValueError(f'"{path}" is not valid file or directory.')
+        raise GuardianError(f'"{path}" is not valid file or directory.')
 
 
-def encrypt_text(text: str | bytes, key: str):
+def encrypt_text(text: str | bytes, key: str) -> bytes:
     """
-    Cifrar un texto o bytes utilizando una clave proporcionada.
+    Encrypts a text or bytes using a provided key.
 
-    Parámetros:
-        * `text` (str | bytes): El texto o bytes que se desea cifrar.
-        * `key` (str): La clave que se utilizará para cifrar el texto.
+    Args:
+        text (str | bytes): The text or bytes to be encrypted.
+        key (str): The key to be used for encryption.
 
-    Retorna:
-        bytes: El texto cifrado en forma de bytes.
+    Returns:
+        bytes: The encrypted text as bytes.
 
-    La función utiliza la biblioteca Fernet para cifrar el texto.
+    This function uses the Fernet symmetric encryption algorithm to encrypt
+    the provided text or bytes.
 
-    Ejemplo de Uso:
-    ```py
-    key = 'clave_secreta'
-    texto = 'Este es un mensaje confidencial.'
-    texto_cifrado = encrypt_text(texto, key)
-    print(texto_cifrado)
-    ```
+    Example:
+        ```
+        key = 'secret_key'
+        text = 'This is a confidential message.'
+        encrypted_text = encrypt_text(text, key)
+        print(encrypted_text)
+        ```
     """
     bkey = get_fernet_key(key)
     fernet = Fernet(bkey)
@@ -157,46 +204,56 @@ def encrypt_text(text: str | bytes, key: str):
     return encrypted_text
 
 
-def decrypt_text(encrypted_text: str, key: str):
+def decrypt_text(encrypted_text: str, key: str, to_str: bool = True) -> str | bytes:
     """
-    Descifrar un texto cifrado utilizando la clave proporcionada.
+    Decrypts an encrypted text using the provided key.
 
-    Parámetros:
-        * `encrypted_text` (str): El texto cifrado que se desea descifrar.
-        * `key` (str): La clave que se utilizará para descifrar el texto.
+    Args:
+        encrypted_text (str): The encrypted text to be decrypted.
+        key (str): The key to be used for decryption.
 
-    Retorna:
-        str: El texto descifrado.
+    Returns:
+        str | bytes: The decrypted text.
 
-    La función utiliza la biblioteca Fernet para descifrar el texto.
-    La clave debe ser la misma que se utilizó para cifrar el texto, de lo
-    contrario, se generará una excepción ValueError.
+    This function uses the Fernet symmetric encryption algorithm to decrypt the
+    provided text. The key must match the one used for encryption, otherwise
+    a GuardianError will be raised.
 
-    Ejemplo de Uso:
-    ```py
-    key = 'clave_secreta'
-    texto_cifrado = '...'
-    texto_descifrado = decrypt_text(texto_cifrado, key)
-    print(texto_descifrado)
-    ```
+    Example:
+        ```
+        key = 'secret_key'
+        encrypted_text = '...'
+        decrypted_text = decrypt_text(encrypted_text, key)
+        print(decrypted_text)
+        ```
     """
     bkey = get_fernet_key(key)
     fernet = Fernet(bkey)
 
     try:
-        text = fernet.decrypt(encrypted_text)
+        decrypted_bytes = fernet.decrypt(encrypted_text)
     except InvalidToken as e:
-        raise ValueError('Clave incorrecta.')
-    return text
+        raise GuardianError(f'Invalid key: {e}')
+
+    if to_str:
+        return decrypted_bytes.decode('utf-8', errors='ignore')
+
+    return decrypted_bytes
 
 
-def get_fernet_key(key: str):
+def get_fernet_key(key: str) -> bytes:
     """
-    Genera una clave Fernet a partir de una clave proporcionada.
+    Generates a Fernet key from a provided key.
 
-    Esta función toma una clave como entrada y genera una clave Fernet
-    utilizando el algoritmo MD5. La clave Fernet es necesaria para cifrar y
-    descifrar texto de forma segura.
+    Args:
+        key (str): The key to be used for generating the Fernet key.
+
+    Returns:
+        bytes: The generated Fernet key.
+
+    This function generates a Fernet key using the MD5 hash algorithm.
+    The key is necessary for securely encrypting and decrypting text using
+    the Fernet encryption scheme.
     """
     passcode = key.encode()
     assert isinstance(passcode, bytes)
@@ -205,7 +262,42 @@ def get_fernet_key(key: str):
     return base64.urlsafe_b64encode(hlib.hexdigest().encode())
 
 
-def confirm(prompt: str):
+def has_non_writable(path: str) -> bool:
+    """
+    Checks whether a file or directory (including its contents if it's a directory)
+    contains at least one file or subdirectory without write permissions.
+
+    Args:
+        path (str): The path to the file or directory to be checked.
+
+    Returns:
+        bool: True if at least one file or subdirectory lacks write permissions,
+            False otherwise.
+
+    Raises:
+        FileNotFoundError: If the specified path does not exist.
+
+    This function recursively checks the write permissions of all files and
+    subdirectories within the given path. If the path points to a file, it
+    checks the write permissions of that file directly. If the path points to a
+    directory, it traverses the directory tree and checks the write permissions
+    of all files and subdirectories.
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Path '{path}' does not exist.")
+
+    if os.path.isfile(path):
+        return not os.access(path, os.W_OK)
+
+    for root, dirs, files in os.walk(path):
+        for name in dirs + files:
+            if not os.access(os.path.join(root, name), os.W_OK):
+                return True
+
+    return False
+
+
+def confirm(prompt: str) -> bool:
     confirm = input(prompt)
     if confirm.lower() in ('y', 'yes'):
         return True
