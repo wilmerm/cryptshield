@@ -1,12 +1,13 @@
+import logging
+import sys
 import os
 import subprocess
 import hashlib
 import base64
-import logging
+
 from cryptography.fernet import Fernet, InvalidToken
 
-
-logger = logging.getLogger(__name__)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
 
 ENCRYPTED = 'encrypted'
@@ -30,7 +31,7 @@ def secure_delete(path: str):
     `shred` command to overwrite the file multiple times before deletion.
     """
     if not os.path.exists(path):
-        logger.error(f"Path '{path}' does not exist.")
+        logging.error(f"Path '{path}' does not exist.")
         return
 
     if os.path.isdir(path):
@@ -41,13 +42,13 @@ def secure_delete(path: str):
         try:
             os.rmdir(path)
         except OSError as e:
-            logger.error(f"Error deleting directory '{path}': {e}")
+            logging.error(f"Error deleting directory '{path}': {e}")
 
     else:
         try:
             subprocess.run(["shred", "-f", "-u", "-n", "3", "-z", path], check=True)
         except subprocess.CalledProcessError as e:
-            logger.error(f"Error deleting file '{path}': {e}")
+            logging.error(f"Error deleting file '{path}': {e}")
 
 
 def encrypt(path: str, key: str, delete: bool = True):
@@ -79,7 +80,7 @@ def encrypt(path: str, key: str, delete: bool = True):
     if os.path.isdir(path):
 
         # First, compress the directory into a ZIP file
-        logger.info(f'Compressing directory "{path}"...')
+        logging.info(f'Compressing directory "{path}"...')
         subprocess.run(['zip', '-r', f'{path}.zip', path], check=True)
 
         # Encrypt the ZIP file
@@ -89,14 +90,14 @@ def encrypt(path: str, key: str, delete: bool = True):
         os.rename(f'{path}.zip.{ENCRYPTED}', f'{path}.{ZIPENCRYPTED}')
 
         # Delete the original directory and ZIP file
-        logger.info(f'Deleting "{path}.zip"...')
+        logging.info(f'Deleting "{path}.zip"...')
         secure_delete(f'{path}.zip')
         if delete:
-            logger.info(f'Deleting "{path}"...')
+            logging.info(f'Deleting "{path}"...')
             secure_delete(path)
 
     elif os.path.isfile(path) or os.path.islink(path):
-        logger.info(f'Encrypting "{path}"...')
+        logging.info(f'Encrypting "{path}"...')
         with open(path, 'rb') as file:
             text = file.read()
             encrypted_text = encrypt_text(text, key)
@@ -104,7 +105,7 @@ def encrypt(path: str, key: str, delete: bool = True):
                 encrypted_file.write(encrypted_text)
 
         if delete:
-            logger.info(f'Deleting "{path}"...')
+            logging.info(f'Deleting "{path}"...')
             secure_delete(path)
 
     else:
@@ -142,7 +143,7 @@ def decrypt(path: str, key: str, delete: bool = True):
             decrypt(_path, key, delete=delete)
 
     elif os.path.isfile(path) or os.path.islink(path):
-        logger.info(f'Decrypting "{path}"...')
+        logging.info(f'Decrypting "{path}"...')
         with open(path, 'rb') as encrypted_file:
             encrypted_text = encrypted_file.read()
             text = decrypt_text(encrypted_text, key, to_str=False)
@@ -154,12 +155,12 @@ def decrypt(path: str, key: str, delete: bool = True):
                     file.write(text)
 
                 # Decompress the ZIP file
-                logger.info(f'Decompressing "{path.replace(f".{ZIPENCRYPTED}", ".zip", 1)}"...')
+                logging.info(f'Decompressing "{path.replace(f".{ZIPENCRYPTED}", ".zip", 1)}"...')
                 subprocess.run(['unzip', path.replace(f'.{ZIPENCRYPTED}', '.zip', 1)], check=True)
 
                 # Delete the encrypted ZIP file
                 if delete:
-                    logger.info(f'Deleting "{path}"...')
+                    logging.info(f'Deleting "{path}"...')
                     secure_delete(path.replace(f'.{ZIPENCRYPTED}', '.zip', 1))
                     secure_delete(path)
             else:
@@ -168,14 +169,14 @@ def decrypt(path: str, key: str, delete: bool = True):
 
                 # Delete the encrypted file
                 if delete:
-                    logger.info(f'Deleting "{path}"...')
+                    logging.info(f'Deleting "{path}"...')
                     secure_delete(path)
 
     else:
         raise GuardianError(f'"{path}" is not valid file or directory.')
 
 
-def encrypt_text(text: str | bytes, key: str) -> bytes:
+def encrypt_text(text: str | bytes, key: str = None) -> bytes:
     """
     Encrypts a text or bytes using a provided key.
 
@@ -194,9 +195,12 @@ def encrypt_text(text: str | bytes, key: str) -> bytes:
         key = 'secret_key'
         text = 'This is a confidential message.'
         encrypted_text = encrypt_text(text, key)
-        print(encrypted_text)
         ```
     """
+    if not key:
+        key = get_default_key()
+        logging.debug(f'Using default key: {key}')
+
     bkey = get_fernet_key(key)
     fernet = Fernet(bkey)
     bytes_text = text if isinstance(text, bytes) else text.encode()
@@ -224,9 +228,12 @@ def decrypt_text(encrypted_text: str, key: str, to_str: bool = True) -> str | by
         key = 'secret_key'
         encrypted_text = '...'
         decrypted_text = decrypt_text(encrypted_text, key)
-        print(decrypted_text)
         ```
     """
+    if not key:
+        key = get_default_key()
+        logging.debug(f'Using default key: {key}')
+
     bkey = get_fernet_key(key)
     fernet = Fernet(bkey)
 
@@ -239,6 +246,14 @@ def decrypt_text(encrypted_text: str, key: str, to_str: bool = True) -> str | by
         return decrypted_bytes.decode('utf-8', errors='ignore')
 
     return decrypted_bytes
+
+
+def get_default_key() -> str:
+    machine_id = subprocess.run(['cat', '/etc/machine-id'], capture_output=True, text=True).stdout.strip()
+    user_id = subprocess.run(['id', '-u'], capture_output=True, text=True).stdout.strip()
+    combined = f"{machine_id}-{user_id}"
+    key = hashlib.sha256(combined.encode()).hexdigest()
+    return key
 
 
 def get_fernet_key(key: str) -> bytes:
@@ -302,3 +317,82 @@ def confirm(prompt: str) -> bool:
     if confirm.lower() in ('y', 'yes'):
         return True
     return False
+
+
+def set_logging(
+    name=None,
+    level=logging.DEBUG,
+    filename='app.log',
+    formatter='%(levelname)s - %(message)s',
+):
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    # Create console handler and set level to INFO
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(level)
+    console_formatter = logging.Formatter('%(message)s')
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+
+    if filename:
+        # Create file handler and set level to INFO
+        file_info_handler = logging.FileHandler(filename, mode='w')
+        file_info_handler.setLevel(logging.INFO)
+        file_formatter = logging.Formatter(formatter)
+        file_info_handler.setFormatter(file_formatter)
+        logger.addHandler(file_info_handler)
+
+
+# Mapping commands to their respective functions
+COMMAND_MAP = {
+    "delete": secure_delete,
+    "encrypt": encrypt,
+    "decrypt": decrypt,
+    "encrypt_text": encrypt_text,
+    "decrypt_text": decrypt_text,
+}
+
+
+def show_help():
+    """Displays usage instructions."""
+    print("Usage: python secure_app.py [COMMAND] [OPTIONS]")
+    print("Available commands:")
+    for command, function in COMMAND_MAP.items():
+        print(f">> python secure_app.py {command} - {function.__doc__.strip()}")
+
+
+def main():
+    if len(sys.argv) < 2:
+        print(f"Missing arguments. {sys.argv=}")
+        show_help()
+        sys.exit(1)
+
+    command_name = sys.argv[1]
+    options = sys.argv[2:]
+
+    if command_name in ("help", "h"):
+        print("Showing help:")
+        show_help()
+        sys.exit(0)
+
+    if command_name not in COMMAND_MAP:
+        print(f'Invalid command: "{command_name}".')
+        show_help()
+        sys.exit(1)
+
+    command = COMMAND_MAP[command_name]
+
+    # Execute command
+    try:
+        result = command(*options)
+        if result is not None:
+            print(result)
+    except GuardianError as e:
+        print(f'Error executing command "{command_name}": {str(e)}')
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    set_logging()
+    main()

@@ -1,0 +1,7 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: guardian
+Source: https://github.com/wilmerm/guardian
+
+Files: *
+Copyright: 2025 Wilmer Martinez <info@wilmermartinez.dev>
+License: MIT
