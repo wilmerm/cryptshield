@@ -91,6 +91,38 @@ encrypted_text = encrypt_text(text, key)
 
 ---
 
+## Release Information
+
+### Version 1.0.0
+
+You can download the latest release of the **Guardian** package as a `.deb` file from the following link:
+
+[Download Guardian 1.0.0 (.deb)](https://github.com/wilmerm/guardian/releases/download/v1.0.0/guardian_1.0.0_all.deb)
+
+### Installation
+
+To install the package on your system, run the following command:
+
+```bash
+wget https://github.com/wilmerm/guardian/releases/download/v1.0.0/guardian_1.0.0_all.deb
+
+sudo dpkg -i guardian_1.0.0_all.deb
+```
+
+After installation, you can run the `guardian` command by simply typing:
+
+```bash
+guardian encrypt [FILE] [KEY]
+```
+
+If you encounter any issues with dependencies, you can resolve them using:
+
+```bash
+sudo apt-get install -f
+```
+
+---
+
 ## **Setup**
 
 Ensure the required libraries are installed using the following command:
@@ -100,6 +132,29 @@ pip install -r requirements.txt
 ```
 
 If you plan to use **secure deletion**, make sure you have administrator (`sudo`) privileges.
+
+---
+
+### Installation and `.deb` Package Creation
+
+Follow these steps to create and install the `.deb` package for *Guardian*:
+
+#### 1. Build the Package
+Run:
+```bash
+dpkg-buildpackage -us -uc
+```
+
+#### 2. Install and Test
+```bash
+sudo dpkg -i ../guardian_<version>_all.deb
+guardian
+```
+
+If there are dependency issues, fix them with:
+```bash
+sudo apt-get install -f
+```
 
 ---
 

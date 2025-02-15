@@ -28,6 +28,12 @@ share/python-wheels/
 MANIFEST
 debian/.debhelper
 debian/guardian
+debian/files
+debian/guardian.substvars
+debian/debhelper-build-stamp
+debian/guardian.postinst.debhelper
+debian/guardian.prerm.debhelper
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
