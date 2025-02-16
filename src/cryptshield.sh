@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PYTHONPATH=$(dirname $(dirname $(realpath $0)))/src python3 -m guardian "$@"
+PYTHONPATH=$(dirname $(dirname $(realpath $0)))/src python3 -m cryptshield "$@"
 
 # Validate if at least one argument is provided
 if [ -z "$1" ]; then
@@ -13,4 +13,4 @@ command_name="$1"
 option1="${2:-}"
 option2="${3:-}"
 
-python3 guardian.py "$command_name" "$option1" "$option2"
+python3 cryptshield.py "$command_name" "$option1" "$option2"

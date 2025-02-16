@@ -18,33 +18,33 @@ This Python application allows you to securely encrypt files and directories usi
 
 ## **Usage**
 
-### **Running `guardian`**
+### **Running `cryptshield`**
 
 #### Basic syntax:
 
 ```sh
-guardian [COMMAND] [OPTION1] [OPTION2]
+cryptshield [COMMAND] [OPTION1] [OPTION2]
 ```
 
 #### Examples:
 
 ```sh
 # Encrypt a file
-guardian encrypt /path/to/file secret_key
+cryptshield encrypt /path/to/file secret_key
 
 # Decrypt a file
-guardian decrypt /path/to/file.encrypted secret_key
+cryptshield decrypt /path/to/file.encrypted secret_key
 
 # Encrypt a text
-guardian encrypt_text "Sample text" secret_key
+cryptshield encrypt_text "Sample text" secret_key
 "gAAAAABnsO0xV07ndDmt-fO..."
 
 # Decrypt a text
-guardian decrypt_text "gAAAAABnsO0xV07ndDmt-fO..." secret_key
+cryptshield decrypt_text "gAAAAABnsO0xV07ndDmt-fO..." secret_key
 "Sample text"
 
 # Secure file deletion
-guardian delete /path/to/file
+cryptshield delete /path/to/file
 ```
 
 ---
@@ -53,24 +53,24 @@ guardian delete /path/to/file
 
 ### Version 1.0.0
 
-You can download the latest release of the **Guardian** package as a `.deb` file from the following link:
+You can download the latest release of the **Cryptshield** package as a `.deb` file from the following link:
 
-[Download Guardian 1.0.0 (.deb)](https://github.com/wilmerm/guardian/releases/download/v1.0.0/guardian_1.0.0_all.deb)
+[Download Cryptshield 1.0.0 (.deb)](https://github.com/wilmerm/cryptshield/releases/download/v1.0.0/cryptshield_1.0.0_all.deb)
 
 ### Installation
 
 To install the package on your system, run the following command:
 
 ```bash
-wget https://github.com/wilmerm/guardian/releases/download/v1.0.0/guardian_1.0.0_all.deb
+wget https://github.com/wilmerm/cryptshield/releases/download/v1.0.0/cryptshield_1.0.0_all.deb
 
-sudo dpkg -i guardian_1.0.0_all.deb
+sudo dpkg -i cryptshield_1.0.0_all.deb
 ```
 
-After installation, you can run the `guardian` command by simply typing:
+After installation, you can run the `cryptshield` command by simply typing:
 
 ```bash
-guardian encrypt [FILE] [KEY]
+cryptshield encrypt [FILE] [KEY]
 ```
 
 If you encounter any issues with dependencies, you can resolve them using:
@@ -95,7 +95,7 @@ If you plan to use **secure deletion**, make sure you have administrator (`sudo`
 
 ### Installation and `.deb` Package Creation
 
-Follow these steps to create and install the `.deb` package for *Guardian*:
+Follow these steps to create and install the `.deb` package for *Cryptshield*:
 
 #### 1. Build the Package
 Run:
@@ -105,8 +105,8 @@ dpkg-buildpackage -us -uc
 
 #### 2. Install and Test
 ```bash
-sudo dpkg -i ../guardian_<version>_all.deb
-guardian
+sudo dpkg -i ../cryptshield_<version>_all.deb
+cryptshield
 ```
 
 If there are dependency issues, fix them with:

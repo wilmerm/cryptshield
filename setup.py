@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name="guardian",
+    name="cryptshield",
     version="1.0",
     packages=["src"],
     install_requires=[
@@ -9,7 +9,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "guardian=src.guardian:main",
+            "cryptshield=src.cryptshield:main",
         ]
     },
 )
