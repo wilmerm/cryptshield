@@ -1,12 +1,12 @@
 
 rm -rf .pybuild
 rm -rf build
-rm -rf guardian.egg-info
+rm -rf cryptshield.egg-info
 rm -rf debian/.debhelper
-rm -rf debian/guardian
-rm -f debian/guardian.debhelper.log
-rm -f debian/guardian.substvars
+rm -rf debian/cryptshield
+rm -f debian/cryptshield.debhelper.log
+rm -f debian/cryptshield.substvars
 rm -f debian/files
 rm -f debian/debhelper-build-stamp
-rm -r debian/guardian.postinst.debhelper
-rm -r debian/guardian.prerm.debhelper
+rm -r debian/cryptshield.postinst.debhelper
+rm -r debian/cryptshield.prerm.debhelper

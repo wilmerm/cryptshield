@@ -1,4 +1,4 @@
-Source: guardian
+Source: cryptshield
 Maintainer: Wilmer Martinez <info@wilmermartinez.dev>
 Section: utils
 Priority: optional
@@ -6,7 +6,7 @@ Standards-Version: 4.5.0
 Build-Depends: debhelper-compat (= 13), dh-python, python3, python3-setuptools
 
 
-Package: guardian
+Package: cryptshield
 Architecture: all
 Depends: python3, python3-requests, ${misc:Depends}, ${python3:Depends}
-Description: Guardian - Secure Encryption and Deletion Application
+Description: Cryptshield - Secure Encryption and Deletion Application

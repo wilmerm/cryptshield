@@ -14,7 +14,7 @@ ENCRYPTED = 'encrypted'
 ZIPENCRYPTED = 'zipencrypted'
 
 
-class GuardianError(Exception):
+class CryptshieldError(Exception):
     pass
 
 
@@ -109,7 +109,7 @@ def encrypt(path: str, key: str, delete: bool = True):
             secure_delete(path)
 
     else:
-        raise GuardianError(f'"{path}" is not a valid file or directory.')
+        raise CryptshieldError(f'"{path}" is not a valid file or directory.')
 
 
 def decrypt(path: str, key: str, delete: bool = True):
@@ -173,7 +173,7 @@ def decrypt(path: str, key: str, delete: bool = True):
                     secure_delete(path)
 
     else:
-        raise GuardianError(f'"{path}" is not valid file or directory.')
+        raise CryptshieldError(f'"{path}" is not valid file or directory.')
 
 
 def encrypt_text(text: str | bytes, key: str = None) -> bytes:
@@ -221,7 +221,7 @@ def decrypt_text(encrypted_text: str, key: str, to_str: bool = True) -> str | by
 
     This function uses the Fernet symmetric encryption algorithm to decrypt the
     provided text. The key must match the one used for encryption, otherwise
-    a GuardianError will be raised.
+    a CryptshieldError will be raised.
 
     Example:
         ```
@@ -240,7 +240,7 @@ def decrypt_text(encrypted_text: str, key: str, to_str: bool = True) -> str | by
     try:
         decrypted_bytes = fernet.decrypt(encrypted_text)
     except InvalidToken as e:
-        raise GuardianError(f'Invalid key: {e}')
+        raise CryptshieldError(f'Invalid key: {e}')
 
     if to_str:
         return decrypted_bytes.decode('utf-8', errors='ignore')
@@ -388,7 +388,7 @@ def main():
         result = command(*options)
         if result is not None:
             print(result)
-    except GuardianError as e:
+    except CryptshieldError as e:
         print(f'Error executing command "{command_name}": {str(e)}')
         sys.exit(1)
 
