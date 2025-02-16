@@ -27,12 +27,12 @@ share/python-wheels/
 *.egg
 MANIFEST
 debian/.debhelper
-debian/guardian
+debian/cryptshield
 debian/files
-debian/guardian.substvars
+debian/cryptshield.substvars
 debian/debhelper-build-stamp
-debian/guardian.postinst.debhelper
-debian/guardian.prerm.debhelper
+debian/cryptshield.postinst.debhelper
+debian/cryptshield.prerm.debhelper
 
 
 # PyInstaller
