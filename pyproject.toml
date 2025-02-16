@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools >= 61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cryptshield"
+version = "1.0.0"
+authors = [
+    { name = "Wilmer Martinez", email = "info@wilmermartinez.dev" }
+]
+description = "Secure Encryption and Deletion Application"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+classifiers = [# https://pypi.org/classifiers/
+
+    # "Development Status :: 1 - Planning",
+    # "Development Status :: 2 - Pre-Alpha",
+    # "Development Status :: 3 - Alpha",
+    # "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
+    # "Development Status :: 6 - Mature",
+    # "Development Status :: 7 - Inactive",
+
+    "Intended Audience :: Developers",
+
+    "Topic :: Software Development :: Libraries :: Python Modules",
+
+    "Environment :: Console, Desktop",
+
+    "License :: OSI Approved :: MIT License",
+
+    "Natural Language :: English",
+    "Natural Language :: Spanish",
+
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+  "cryptography",
+]
+keywords = [
+    "encryption",
+    "deletion",
+    "secure",
+    "application",
+    "python",
+    "cryptography",
+    "cryptshield",
+    "guardian",
+]
+
+[project.urls]
+Homepage = "https://github.com/wilmerm/cryptshield"
+Documentation = "https://github.com/wilmerm/cryptshield?tab=readme-ov-file#secure-encryption-and-deletion-application"
+Repository = "https://github.com/wilmerm/cryptshield"
+Issues = "https://github.com/wilmerm/cryptshield/issues"
+Release = "https://github.com/wilmerm/cryptshield/releases"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+

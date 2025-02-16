@@ -91,7 +91,6 @@ pip install -r requirements.txt
 
 If you plan to use **secure deletion**, make sure you have administrator (`sudo`) privileges.
 
----
 
 ### Installation and `.deb` Package Creation
 
@@ -114,6 +113,34 @@ If there are dependency issues, fix them with:
 sudo apt-get install -f
 ```
 
+### Building and Publishing the Library
+
+To compile and upload the library to PyPI, follow these steps:
+
+1. Ensure you have the necessary dependencies:
+
+    ```sh
+    pip install build twine
+    ```
+
+2. Build the package:
+
+    ```sh
+    python -m build
+    ```
+
+3. (Optional) Verify the package:
+
+    ```sh
+    twine check dist/*
+    ```
+
+4. Upload the package to PyPI:
+
+    ```sh
+    python -m twine upload dist/*
+    ```
+
 ---
 
 ## **Contributing**
@@ -125,3 +152,11 @@ If you'd like to contribute to this project or report an issue, feel free to ope
 ## **License**
 
 This application is distributed under the **MIT License**.
+
+## Contribution 💗
+
+If you find value in this project and would like to show your support, please consider making a donation via PayPal:
+
+[Donate on PayPal](https://paypal.me/martinezwilmer?country.x=DO&locale.x=es_XC)
+
+Your generosity helps us to continue improving and maintaining this project. We appreciate every contribution, however small. Thanks for being part of our community!
