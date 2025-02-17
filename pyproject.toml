@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cryptshield"
-version = "1.0.0"
+version = "1.0.1"
 authors = [
     { name = "Wilmer Martinez", email = "info@wilmermartinez.dev" }
 ]
@@ -60,5 +60,6 @@ Release = "https://github.com/wilmerm/cryptshield/releases"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["cryptshield"]
 
 

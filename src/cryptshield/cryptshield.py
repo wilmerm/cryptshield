@@ -20,7 +20,7 @@ class CryptshieldError(Exception):
     pass
 
 
-def secure_delete(path: str):
+def secure_delete(*paths) -> List[str]:
     """
     Securely deletes a file or directory at the specified path.
 
@@ -29,7 +29,7 @@ def secure_delete(path: str):
 
     """
     deleted_paths = []
-    paths = expand_path(path)
+    paths = expand_path(paths)
     total = count_files_and_dirs(paths)
     deleted_count = 0
 
@@ -342,12 +342,25 @@ def has_non_writable(path: str) -> bool:
     return False
 
 
-def expand_path(pattern: str) -> List[str]:
+def expand_path(pattern: str | List[str]) -> List[str]:
     """
-    Expands a file path pattern to a list of matching files.
+    Expands a path pattern into a list of matching file paths.
+
+    Args:
+        pattern (str | List[str]): The path pattern to be expanded.
+
+    Returns:
+        List[str]: A list of matching file paths.
     """
-    expanded = os.path.expanduser(pattern)
-    matches = glob.glob(expanded)
+    if isinstance(pattern, str):
+        pattern = [pattern]
+
+    matches = []
+    for p in pattern:
+        expanded = os.path.expanduser(p)
+        # Include hidden files and directories
+        _matches = glob.glob(expanded, recursive=True) + glob.glob(os.path.join(expanded, '.*'), recursive=True)
+        matches.extend(_matches)
     return matches
 
 
@@ -409,14 +422,26 @@ COMMAND_MAP = {
 
 
 def show_help():
-    """Displays usage instructions."""
-    print("Usage: python secure_app.py [COMMAND] [OPTIONS]")
-    print("Available commands:")
-    for command, function in COMMAND_MAP.items():
-        print(f">> python secure_app.py {command} - {function.__doc__.strip()}")
+    """
+    Displays usage instructions.
+    """
+    print(
+        """
+        Usage: cryptshield <command> [options]
+
+        Commands:
+            delete <path>...: Securely delete files or directories.
+            encrypt <path> <key> [--delete]: Encrypt files or directories.
+            decrypt <path> <key> [--delete]: Decrypt encrypted files or directories.
+            encrypt_text <text> <key>: Encrypt text using a key.
+            decrypt_text <text> <key>: Decrypt encrypted text using a key.
+            help: Show this help message.
+        """
+    )
 
 
 def main():
+    print(sys.argv)
     if len(sys.argv) < 2:
         print(f"Missing arguments. {sys.argv=}")
         show_help()
