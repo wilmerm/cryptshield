@@ -1,4 +1,5 @@
 
+rm -rf dist
 rm -rf .pybuild
 rm -rf build
 rm -rf cryptshield.egg-info
@@ -10,3 +11,4 @@ rm -f debian/files
 rm -f debian/debhelper-build-stamp
 rm -r debian/cryptshield.postinst.debhelper
 rm -r debian/cryptshield.prerm.debhelper
+rm -r src/cryptshield.egg-info

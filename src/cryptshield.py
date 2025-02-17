@@ -4,6 +4,8 @@ import os
 import subprocess
 import hashlib
 import base64
+import glob
+from typing import List
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -23,32 +25,60 @@ def secure_delete(path: str):
     Securely deletes a file or directory at the specified path.
 
     Args:
-        path (str): The path to the file or directory to be securely deleted.
+        path (str): The path to the file or directory to be deleted.
 
-    This function ensures that the file or directory is permanently deleted u
-    sing a secure method. If the path points to a directory, it recursively
-    deletes all files and subdirectories within it. For files, it uses the
-    `shred` command to overwrite the file multiple times before deletion.
     """
-    if not os.path.exists(path):
-        logging.error(f"Path '{path}' does not exist.")
-        return
+    deleted_paths = []
+    paths = expand_path(path)
+    total = count_files_and_dirs(paths)
+    deleted_count = 0
 
-    if os.path.isdir(path):
-        for filename in os.listdir(path):
-            _path = os.path.join(path, filename)
-            secure_delete(_path)
+    for path in paths:
+        if not os.path.exists(path):
+            logging.error(f"Path '{path}' does not exist.")
+            continue
 
-        try:
-            os.rmdir(path)
-        except OSError as e:
-            logging.error(f"Error deleting directory '{path}': {e}")
+        if os.path.isdir(path):
+            for root, dirs, files in os.walk(path, topdown=False):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        logging.info(f"({deleted_count + 1}/{total}) Deleting '{file_path}'...")
+                        subprocess.run(["shred", "-f", "-u", "-n", "3", "-z", file_path], check=True)
+                        deleted_paths.append(file_path)
+                        deleted_count += 1
+                    except subprocess.CalledProcessError as e:
+                        logging.error(f"Error deleting file '{file_path}': {e}")
 
-    else:
-        try:
-            subprocess.run(["shred", "-f", "-u", "-n", "3", "-z", path], check=True)
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Error deleting file '{path}': {e}")
+                for dir_ in dirs:
+                    dir_path = os.path.join(root, dir_)
+                    try:
+                        logging.info(f"({deleted_count + 1}/{total}) Deleting '{dir_path}'...")
+                        os.rmdir(dir_path)
+                        deleted_paths.append(dir_path)
+                        deleted_count += 1
+                    except OSError as e:
+                        logging.error(f"Error deleting directory '{dir_path}': {e}")
+
+            try:
+                logging.info(f"({deleted_count + 1}/{total}) Deleting '{path}'...")
+                os.rmdir(path)
+                deleted_paths.append(path)
+                deleted_count += 1
+            except OSError as e:
+                logging.error(f"Error deleting directory '{path}': {e}")
+
+        else:
+            try:
+                logging.info(f"({deleted_count + 1}/{total}) Deleting '{path}'...")
+                subprocess.run(["shred", "-f", "-u", "-n", "3", "-z", path], check=True)
+                deleted_paths.append(path)
+                deleted_count += 1
+            except subprocess.CalledProcessError as e:
+                logging.error(f"Error deleting file '{path}': {e}")
+
+    logging.info(f"Deleted {deleted_count} files and directories.")
+    return deleted_paths
 
 
 def encrypt(path: str, key: str, delete: bool = True):
@@ -310,6 +340,30 @@ def has_non_writable(path: str) -> bool:
                 return True
 
     return False
+
+
+def expand_path(pattern: str) -> List[str]:
+    """
+    Expands a file path pattern to a list of matching files.
+    """
+    expanded = os.path.expanduser(pattern)
+    matches = glob.glob(expanded)
+    return matches
+
+
+def count_files_and_dirs(paths):
+    """
+    Counts the number of files and directories in the specified paths.
+    """
+    total = 0
+    for path in paths:
+        if os.path.isdir(path):
+            for _, dirs, files in os.walk(path):
+                total += len(files) + len(dirs)
+            total += 1
+        elif os.path.isfile(path):
+            total += 1
+    return total
 
 
 def confirm(prompt: str) -> bool:
