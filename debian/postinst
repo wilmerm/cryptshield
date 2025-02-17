@@ -1,3 +1,16 @@
 #!/bin/bash
+
 set -e
+
+# Check if shred is installed
+if ! command -v shred &> /dev/null
+then
+    echo "shred could not be found. Installing coreutils..."
+    sudo apt-get update
+    sudo apt-get install -y coreutils
+fi
+
 echo "Instalation successful."
+exit 0
+
+
