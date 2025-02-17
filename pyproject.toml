@@ -24,9 +24,7 @@ classifiers = [# https://pypi.org/classifiers/
 
     "Intended Audience :: Developers",
 
-    "Topic :: Software Development :: Libraries :: Python Modules",
-
-    "Environment :: Console, Desktop",
+    "Topic :: Security :: Cryptography",
 
     "License :: OSI Approved :: MIT License",
 
