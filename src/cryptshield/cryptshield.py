@@ -20,6 +20,36 @@ class CryptshieldError(Exception):
     pass
 
 
+def get_logger(
+    name='cryptshield',
+    level=logging.INFO,
+    filename=None,
+    formatter='%(levelname)s - %(message)s',
+):
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    # Create console handler and set level to INFO
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(level)
+    console_formatter = logging.Formatter('%(message)s')
+    console_handler.setFormatter(console_formatter)
+    logger.addHandler(console_handler)
+
+    if filename:
+        # Create file handler and set level to INFO
+        file_info_handler = logging.FileHandler(filename, mode='w')
+        file_info_handler.setLevel(logging.INFO)
+        file_formatter = logging.Formatter(formatter)
+        file_info_handler.setFormatter(file_formatter)
+        logger.addHandler(file_info_handler)
+
+    return logger
+
+
+logger = get_logger()
+
+
 def secure_delete(*paths) -> List[str]:
     """
     Securely deletes a file or directory at the specified path.
@@ -35,7 +65,7 @@ def secure_delete(*paths) -> List[str]:
 
     for path in paths:
         if not os.path.exists(path):
-            logging.error(f"Path '{path}' does not exist.")
+            logger.error(f"Path '{path}' does not exist.")
             continue
 
         if os.path.isdir(path):
@@ -43,41 +73,41 @@ def secure_delete(*paths) -> List[str]:
                 for file in files:
                     file_path = os.path.join(root, file)
                     try:
-                        logging.info(f"({deleted_count + 1}/{total}) Deleting '{file_path}'...")
+                        logger.info(f"({deleted_count + 1}/{total}) Deleting '{file_path}'...")
                         subprocess.run(["shred", "-f", "-u", "-n", "3", "-z", file_path], check=True)
                         deleted_paths.append(file_path)
                         deleted_count += 1
                     except subprocess.CalledProcessError as e:
-                        logging.error(f"Error deleting file '{file_path}': {e}")
+                        logger.error(f"Error deleting file '{file_path}': {e}")
 
                 for dir_ in dirs:
                     dir_path = os.path.join(root, dir_)
                     try:
-                        logging.info(f"({deleted_count + 1}/{total}) Deleting '{dir_path}'...")
+                        logger.info(f"({deleted_count + 1}/{total}) Deleting '{dir_path}'...")
                         os.rmdir(dir_path)
                         deleted_paths.append(dir_path)
                         deleted_count += 1
                     except OSError as e:
-                        logging.error(f"Error deleting directory '{dir_path}': {e}")
+                        logger.error(f"Error deleting directory '{dir_path}': {e}")
 
             try:
-                logging.info(f"({deleted_count + 1}/{total}) Deleting '{path}'...")
+                logger.info(f"({deleted_count + 1}/{total}) Deleting '{path}'...")
                 os.rmdir(path)
                 deleted_paths.append(path)
                 deleted_count += 1
             except OSError as e:
-                logging.error(f"Error deleting directory '{path}': {e}")
+                logger.error(f"Error deleting directory '{path}': {e}")
 
         else:
             try:
-                logging.info(f"({deleted_count + 1}/{total}) Deleting '{path}'...")
+                logger.info(f"({deleted_count + 1}/{total}) Deleting '{path}'...")
                 subprocess.run(["shred", "-f", "-u", "-n", "3", "-z", path], check=True)
                 deleted_paths.append(path)
                 deleted_count += 1
             except subprocess.CalledProcessError as e:
-                logging.error(f"Error deleting file '{path}': {e}")
+                logger.error(f"Error deleting file '{path}': {e}")
 
-    logging.info(f"Deleted {deleted_count} files and directories.")
+    logger.info(f"Deleted {deleted_count} files and directories.")
     return deleted_paths
 
 
@@ -110,7 +140,7 @@ def encrypt(path: str, key: str, delete: bool = True):
     if os.path.isdir(path):
 
         # First, compress the directory into a ZIP file
-        logging.info(f'Compressing directory "{path}"...')
+        logger.info(f'Compressing directory "{path}"...')
         subprocess.run(['zip', '-r', f'{path}.zip', path], check=True)
 
         # Encrypt the ZIP file
@@ -120,14 +150,14 @@ def encrypt(path: str, key: str, delete: bool = True):
         os.rename(f'{path}.zip.{ENCRYPTED}', f'{path}.{ZIPENCRYPTED}')
 
         # Delete the original directory and ZIP file
-        logging.info(f'Deleting "{path}.zip"...')
+        logger.info(f'Deleting "{path}.zip"...')
         secure_delete(f'{path}.zip')
         if delete:
-            logging.info(f'Deleting "{path}"...')
+            logger.info(f'Deleting "{path}"...')
             secure_delete(path)
 
     elif os.path.isfile(path) or os.path.islink(path):
-        logging.info(f'Encrypting "{path}"...')
+        logger.info(f'Encrypting "{path}"...')
         with open(path, 'rb') as file:
             text = file.read()
             encrypted_text = encrypt_text(text, key)
@@ -135,7 +165,7 @@ def encrypt(path: str, key: str, delete: bool = True):
                 encrypted_file.write(encrypted_text)
 
         if delete:
-            logging.info(f'Deleting "{path}"...')
+            logger.info(f'Deleting "{path}"...')
             secure_delete(path)
 
     else:
@@ -173,7 +203,7 @@ def decrypt(path: str, key: str, delete: bool = True):
             decrypt(_path, key, delete=delete)
 
     elif os.path.isfile(path) or os.path.islink(path):
-        logging.info(f'Decrypting "{path}"...')
+        logger.info(f'Decrypting "{path}"...')
         with open(path, 'rb') as encrypted_file:
             encrypted_text = encrypted_file.read()
             text = decrypt_text(encrypted_text, key, to_str=False)
@@ -185,12 +215,12 @@ def decrypt(path: str, key: str, delete: bool = True):
                     file.write(text)
 
                 # Decompress the ZIP file
-                logging.info(f'Decompressing "{path.replace(f".{ZIPENCRYPTED}", ".zip", 1)}"...')
+                logger.info(f'Decompressing "{path.replace(f".{ZIPENCRYPTED}", ".zip", 1)}"...')
                 subprocess.run(['unzip', path.replace(f'.{ZIPENCRYPTED}', '.zip', 1)], check=True)
 
                 # Delete the encrypted ZIP file
                 if delete:
-                    logging.info(f'Deleting "{path}"...')
+                    logger.info(f'Deleting "{path}"...')
                     secure_delete(path.replace(f'.{ZIPENCRYPTED}', '.zip', 1))
                     secure_delete(path)
             else:
@@ -199,7 +229,7 @@ def decrypt(path: str, key: str, delete: bool = True):
 
                 # Delete the encrypted file
                 if delete:
-                    logging.info(f'Deleting "{path}"...')
+                    logger.info(f'Deleting "{path}"...')
                     secure_delete(path)
 
     else:
@@ -229,7 +259,7 @@ def encrypt_text(text: str | bytes, key: str = None) -> bytes:
     """
     if not key:
         key = get_default_key()
-        logging.debug(f'Using default key: {key}')
+        logger.debug(f'Using default key: {key}')
 
     bkey = get_fernet_key(key)
     fernet = Fernet(bkey)
@@ -262,7 +292,7 @@ def decrypt_text(encrypted_text: str, key: str, to_str: bool = True) -> str | by
     """
     if not key:
         key = get_default_key()
-        logging.debug(f'Using default key: {key}')
+        logger.debug(f'Using default key: {key}')
 
     bkey = get_fernet_key(key)
     fernet = Fernet(bkey)
@@ -386,31 +416,6 @@ def confirm(prompt: str) -> bool:
     return False
 
 
-def set_logging(
-    name=None,
-    level=logging.DEBUG,
-    filename='app.log',
-    formatter='%(levelname)s - %(message)s',
-):
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-
-    # Create console handler and set level to INFO
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_formatter = logging.Formatter('%(message)s')
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
-
-    if filename:
-        # Create file handler and set level to INFO
-        file_info_handler = logging.FileHandler(filename, mode='w')
-        file_info_handler.setLevel(logging.INFO)
-        file_formatter = logging.Formatter(formatter)
-        file_info_handler.setFormatter(file_formatter)
-        logger.addHandler(file_info_handler)
-
-
 # Mapping commands to their respective functions
 COMMAND_MAP = {
     "delete": secure_delete,
@@ -441,7 +446,6 @@ def show_help():
 
 
 def main():
-    print(sys.argv)
     if len(sys.argv) < 2:
         print(f"Missing arguments. {sys.argv=}")
         show_help()
@@ -464,14 +468,13 @@ def main():
 
     # Execute command
     try:
-        result = command(*options)
-        if result is not None:
-            print(result)
+        command(*options)
     except CryptshieldError as e:
         print(f'Error executing command "{command_name}": {str(e)}')
         sys.exit(1)
 
+    sys.exit(0)
+
 
 if __name__ == "__main__":
-    set_logging()
     main()
