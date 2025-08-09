@@ -5,7 +5,9 @@ import subprocess
 import hashlib
 import base64
 import glob
-from typing import List
+import gc
+import time
+from typing import List, Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -111,7 +113,7 @@ def secure_delete(*paths) -> List[str]:
     return deleted_paths
 
 
-def encrypt(path: str, key: str, delete: bool = True):
+def encrypt(path: str, key: str, delete: bool = True, cleanup_meta: bool = True):
     """
     Encrypts files at a given path using a provided key.
 
@@ -120,6 +122,8 @@ def encrypt(path: str, key: str, delete: bool = True):
         key (str): The key to be used for encryption.
         delete (bool, optional): If True, the original file will be deleted
             after encryption. Defaults to True.
+        cleanup_meta (bool, optional): If True, metadata will be cleaned up
+            from encrypted files. Defaults to True.
 
     This function recursively encrypts all files in the specified directory.
     Encrypted files are saved with the '.encrypted' extension. If the path is a
@@ -144,10 +148,17 @@ def encrypt(path: str, key: str, delete: bool = True):
         subprocess.run(['zip', '-r', f'{path}.zip', path], check=True)
 
         # Encrypt the ZIP file
-        encrypt(f'{path}.zip', key, delete=False)
+        encrypt(f'{path}.zip', key, delete=False, cleanup_meta=cleanup_meta)
 
         # Rename the encrypted ZIP file to '.zipencrypted'.
         os.rename(f'{path}.zip.{ENCRYPTED}', f'{path}.{ZIPENCRYPTED}')
+
+        # Clean up metadata on the encrypted file
+        if cleanup_meta:
+            logger.info(f'Cleaning up metadata for "{path}.{ZIPENCRYPTED}"...')
+            cleanup_result = cleanup_metadata(f'{path}.{ZIPENCRYPTED}')
+            if cleanup_result.get('errors'):
+                logger.warning(f"Metadata cleanup warnings: {cleanup_result['errors']}")
 
         # Delete the original directory and ZIP file
         logger.info(f'Deleting "{path}.zip"...')
@@ -161,18 +172,29 @@ def encrypt(path: str, key: str, delete: bool = True):
         with open(path, 'rb') as file:
             text = file.read()
             encrypted_text = encrypt_text(text, key)
-            with open(path + f'.{ENCRYPTED}', 'wb') as encrypted_file:
+            encrypted_path = path + f'.{ENCRYPTED}'
+            with open(encrypted_path, 'wb') as encrypted_file:
                 encrypted_file.write(encrypted_text)
+
+        # Clean up metadata on the encrypted file
+        if cleanup_meta:
+            logger.info(f'Cleaning up metadata for "{encrypted_path}"...')
+            cleanup_result = cleanup_metadata(encrypted_path)
+            if cleanup_result.get('errors'):
+                logger.warning(f"Metadata cleanup warnings: {cleanup_result['errors']}")
 
         if delete:
             logger.info(f'Deleting "{path}"...')
             secure_delete(path)
+        
+        # Clear sensitive data from memory
+        clear_sensitive_memory(text, encrypted_text)
 
     else:
         raise CryptshieldError(f'"{path}" is not a valid file or directory.')
 
 
-def decrypt(path: str, key: str, delete: bool = True):
+def decrypt(path: str, key: str, delete: bool = True, cleanup_meta: bool = True):
     """
     Decrypts encrypted files at a given path using a provided key.
 
@@ -181,6 +203,8 @@ def decrypt(path: str, key: str, delete: bool = True):
         key (str): The key to be used for decryption.
         delete (bool, optional): If True, the encrypted file will be deleted
             after decryption. Defaults to True.
+        cleanup_meta (bool, optional): If True, metadata will be cleaned up
+            from decrypted files. Defaults to True.
 
     This function recursively decrypts all files in the specified directory.
     If the path is a directory, it will decrypt all files within it. Files with
@@ -200,7 +224,7 @@ def decrypt(path: str, key: str, delete: bool = True):
     if os.path.isdir(path):
         for filename in os.listdir(path):
             _path = os.path.join(path, filename)
-            decrypt(_path, key, delete=delete)
+            decrypt(_path, key, delete=delete, cleanup_meta=cleanup_meta)
 
     elif os.path.isfile(path) or os.path.islink(path):
         logger.info(f'Decrypting "{path}"...')
@@ -211,26 +235,45 @@ def decrypt(path: str, key: str, delete: bool = True):
             # Check if the file is a ZIP file that was encrypted
             if path.endswith(f'.{ZIPENCRYPTED}'):
                 # Save the decrypted ZIP file
-                with open(path.replace(f'.{ZIPENCRYPTED}', '.zip', 1), 'wb') as file:
+                zip_path = path.replace(f'.{ZIPENCRYPTED}', '.zip', 1)
+                with open(zip_path, 'wb') as file:
                     file.write(text)
 
+                # Clean up metadata on the decrypted ZIP file
+                if cleanup_meta:
+                    logger.info(f'Cleaning up metadata for "{zip_path}"...')
+                    cleanup_result = cleanup_metadata(zip_path)
+                    if cleanup_result.get('errors'):
+                        logger.warning(f"Metadata cleanup warnings: {cleanup_result['errors']}")
+
                 # Decompress the ZIP file
-                logger.info(f'Decompressing "{path.replace(f".{ZIPENCRYPTED}", ".zip", 1)}"...')
-                subprocess.run(['unzip', path.replace(f'.{ZIPENCRYPTED}', '.zip', 1)], check=True)
+                logger.info(f'Decompressing "{zip_path}"...')
+                subprocess.run(['unzip', zip_path], check=True)
 
                 # Delete the encrypted ZIP file
                 if delete:
                     logger.info(f'Deleting "{path}"...')
-                    secure_delete(path.replace(f'.{ZIPENCRYPTED}', '.zip', 1))
+                    secure_delete(zip_path)
                     secure_delete(path)
             else:
-                with open(path.replace(f'.{ENCRYPTED}', '', 1), 'wb') as file:
+                decrypted_path = path.replace(f'.{ENCRYPTED}', '', 1)
+                with open(decrypted_path, 'wb') as file:
                     file.write(text)
+
+                # Clean up metadata on the decrypted file
+                if cleanup_meta:
+                    logger.info(f'Cleaning up metadata for "{decrypted_path}"...')
+                    cleanup_result = cleanup_metadata(decrypted_path)
+                    if cleanup_result.get('errors'):
+                        logger.warning(f"Metadata cleanup warnings: {cleanup_result['errors']}")
 
                 # Delete the encrypted file
                 if delete:
                     logger.info(f'Deleting "{path}"...')
                     secure_delete(path)
+            
+            # Clear sensitive data from memory
+            clear_sensitive_memory(encrypted_text, text)
 
     else:
         raise CryptshieldError(f'"{path}" is not valid file or directory.')
@@ -265,6 +308,10 @@ def encrypt_text(text: str | bytes, key: str = None) -> bytes:
     fernet = Fernet(bkey)
     bytes_text = text if isinstance(text, bytes) else text.encode()
     encrypted_text = fernet.encrypt(bytes_text)
+    
+    # Clear sensitive data from memory
+    clear_sensitive_memory(bytes_text)
+    
     return encrypted_text
 
 
@@ -303,7 +350,10 @@ def decrypt_text(encrypted_text: str, key: str, to_str: bool = True) -> str | by
         raise CryptshieldError(f'Invalid key: {e}')
 
     if to_str:
-        return decrypted_bytes.decode('utf-8', errors='ignore')
+        result = decrypted_bytes.decode('utf-8', errors='ignore')
+        # Clear sensitive data from memory
+        clear_sensitive_memory(decrypted_bytes)
+        return result
 
     return decrypted_bytes
 
@@ -416,13 +466,230 @@ def confirm(prompt: str) -> bool:
     return False
 
 
+def clear_extended_attributes(path: str) -> bool:
+    """
+    Clears all extended attributes from a file or directory.
+    
+    Args:
+        path (str): The path to the file or directory.
+        
+    Returns:
+        bool: True if extended attributes were cleared, False if none existed or operation failed.
+    """
+    try:
+        # List all extended attributes
+        result = subprocess.run(['getfattr', '-d', path], capture_output=True, text=True)
+        if result.returncode != 0:
+            return False
+            
+        # Parse the output to get attribute names
+        lines = result.stdout.strip().split('\n')
+        attributes = []
+        for line in lines:
+            if line.startswith('#') or not line.strip():
+                continue
+            if '=' in line:
+                attr_name = line.split('=')[0]
+                attributes.append(attr_name)
+        
+        # Remove each extended attribute
+        for attr in attributes:
+            subprocess.run(['setfattr', '-x', attr, path], check=True)
+            logger.debug(f"Removed extended attribute '{attr}' from '{path}'")
+        
+        return len(attributes) > 0
+        
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # getfattr/setfattr not available or other error
+        return False
+
+
+def normalize_timestamps(path: str, timestamp: Optional[float] = None) -> bool:
+    """
+    Normalizes the timestamps of a file to a fixed value or current time.
+    
+    Args:
+        path (str): The path to the file or directory.
+        timestamp (Optional[float]): The timestamp to set. If None, uses current time.
+        
+    Returns:
+        bool: True if timestamps were normalized, False otherwise.
+    """
+    try:
+        if timestamp is None:
+            timestamp = time.time()
+        
+        # Set both access and modification times
+        os.utime(path, (timestamp, timestamp))
+        logger.debug(f"Normalized timestamps for '{path}'")
+        return True
+    except OSError as e:
+        logger.error(f"Failed to normalize timestamps for '{path}': {e}")
+        return False
+
+
+def clear_sensitive_memory(*variables) -> None:
+    """
+    Attempts to clear sensitive data from memory by overwriting variables.
+    
+    Args:
+        *variables: Variables containing sensitive data to clear.
+    """
+    for var in variables:
+        if isinstance(var, str):
+            # Overwrite string with zeros (Python strings are immutable, so this is limited)
+            var = '\x00' * len(var)
+        elif isinstance(var, bytes):
+            # For bytes, we can overwrite the underlying buffer in some cases
+            if hasattr(var, 'decode'):
+                var = b'\x00' * len(var)
+        elif isinstance(var, list):
+            var.clear()
+        elif isinstance(var, dict):
+            var.clear()
+    
+    # Force garbage collection to clean up unreferenced objects
+    gc.collect()
+
+
+def sync_filesystem() -> bool:
+    """
+    Forces the filesystem to sync all pending write operations.
+    
+    Returns:
+        bool: True if sync was successful, False otherwise.
+    """
+    try:
+        subprocess.run(['sync'], check=True)
+        logger.debug("Filesystem sync completed")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to sync filesystem: {e}")
+        return False
+
+
+def cleanup_metadata(path: str, clear_xattrs: bool = True, normalize_time: bool = True, 
+                    timestamp: Optional[float] = None) -> dict:
+    """
+    Comprehensive metadata cleanup for a file or directory.
+    
+    Args:
+        path (str): The path to clean metadata for.
+        clear_xattrs (bool): Whether to clear extended attributes.
+        normalize_time (bool): Whether to normalize timestamps.
+        timestamp (Optional[float]): The timestamp to set if normalizing.
+        
+    Returns:
+        dict: Summary of cleanup operations performed.
+    """
+    results = {
+        'path': path,
+        'extended_attributes_cleared': False,
+        'timestamps_normalized': False,
+        'filesystem_synced': False,
+        'errors': []
+    }
+    
+    if not os.path.exists(path):
+        results['errors'].append(f"Path '{path}' does not exist")
+        return results
+    
+    # Clear extended attributes
+    if clear_xattrs:
+        try:
+            results['extended_attributes_cleared'] = clear_extended_attributes(path)
+        except Exception as e:
+            results['errors'].append(f"Failed to clear extended attributes: {e}")
+    
+    # Normalize timestamps
+    if normalize_time:
+        try:
+            results['timestamps_normalized'] = normalize_timestamps(path, timestamp)
+        except Exception as e:
+            results['errors'].append(f"Failed to normalize timestamps: {e}")
+    
+    # Sync filesystem
+    try:
+        results['filesystem_synced'] = sync_filesystem()
+    except Exception as e:
+        results['errors'].append(f"Failed to sync filesystem: {e}")
+    
+    return results
+
+
+def cleanup_metadata_cli(*paths):
+    """
+    CLI wrapper for metadata cleanup functionality.
+    
+    Args:
+        *paths: File or directory paths to clean metadata for.
+    """
+    if not paths:
+        logger.error("No paths provided for metadata cleanup")
+        return
+    
+    expanded_paths = expand_path(list(paths))
+    if not expanded_paths:
+        logger.error("No valid paths found")
+        return
+    
+    for path in expanded_paths:
+        logger.info(f'Cleaning up metadata for "{path}"...')
+        result = cleanup_metadata(path)
+        
+        # Report results
+        operations = []
+        if result.get('extended_attributes_cleared'):
+            operations.append("extended attributes cleared")
+        if result.get('timestamps_normalized'):
+            operations.append("timestamps normalized")
+        if result.get('filesystem_synced'):
+            operations.append("filesystem synced")
+        
+        if operations:
+            logger.info(f'  → {", ".join(operations)}')
+        else:
+            logger.info('  → no metadata changes needed')
+        
+        if result.get('errors'):
+            for error in result['errors']:
+                logger.warning(f'  → warning: {error}')
+    
+    logger.info(f"Metadata cleanup completed for {len(expanded_paths)} path(s)")
+
+
+def encrypt_text_cli(text: str, key: str = None):
+    """
+    CLI wrapper for text encryption.
+    
+    Args:
+        text (str): The text to encrypt.
+        key (str): The encryption key.
+    """
+    result = encrypt_text(text, key)
+    print(result.decode() if isinstance(result, bytes) else result)
+
+
+def decrypt_text_cli(encrypted_text: str, key: str):
+    """
+    CLI wrapper for text decryption.
+    
+    Args:
+        encrypted_text (str): The encrypted text to decrypt.
+        key (str): The decryption key.
+    """
+    result = decrypt_text(encrypted_text, key)
+    print(result)
+
+
 # Mapping commands to their respective functions
 COMMAND_MAP = {
     "delete": secure_delete,
     "encrypt": encrypt,
     "decrypt": decrypt,
-    "encrypt_text": encrypt_text,
-    "decrypt_text": decrypt_text,
+    "encrypt_text": encrypt_text_cli,
+    "decrypt_text": decrypt_text_cli,
+    "cleanup": cleanup_metadata_cli,
 }
 
 
@@ -440,6 +707,7 @@ def show_help():
             decrypt <path> <key> [--delete]: Decrypt encrypted files or directories.
             encrypt_text <text> <key>: Encrypt text using a key.
             decrypt_text <text> <key>: Decrypt encrypted text using a key.
+            cleanup <path>: Clean up metadata from files or directories.
             help: Show this help message.
         """
     )
