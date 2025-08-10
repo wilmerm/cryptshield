@@ -1,5 +1,14 @@
+cryptshield (1.1.0) stable; urgency=medium
+
+  * Updated version to 1.1.0
+  * Added new features and improvements
+  * Updated documentation and installation instructions
+
+  -- Wilmer Martinez <https://github.com/wilmerm>  Sun, 10 Aug 2025 12:00:00 +0000
+
 cryptshield (1.0.0) unstable; urgency=medium
 
   * First package version
 
- -- Wilmer Martinez <info@wilmermartinez.dev>  Fri, 14 Feb 2025 12:00:00 +0000
+ -- Wilmer Martinez <https://github.com/wilmerm>  Fri, 14 Feb 2025 12:00:00 +0000
+

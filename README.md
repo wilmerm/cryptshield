@@ -111,20 +111,20 @@ cryptshield clean_metadata /path/to/file.jpg false true true
 
 ## Release Information
 
-### Version 1.0.1
+### Version 1.1.0
 
 You can download the latest release of the **Cryptshield** package as a `.deb` file from the following link:
 
-[Download Cryptshield 1.0.1 (.deb)](https://github.com/wilmerm/cryptshield/releases/download/v1.0.1/cryptshield_1.0.1_all.deb)
+[Download Cryptshield 1.1.0 (.deb)](https://github.com/wilmerm/cryptshield/releases/download/v1.1.0/cryptshield_1.1.0_all.deb)
 
 ### Installation
 
 To install the package on your system, run the following command:
 
 ```bash
-wget https://github.com/wilmerm/cryptshield/releases/download/v1.0.1/cryptshield_1.0.1_all.deb
+wget https://github.com/wilmerm/cryptshield/releases/download/v1.1.0/cryptshield_1.1.0_all.deb
 
-sudo dpkg -i cryptshield_1.0.1_all.deb
+sudo dpkg -i cryptshield_1.1.0_all.deb
 ```
 
 After installation, you can run the `cryptshield` command by simply typing:
