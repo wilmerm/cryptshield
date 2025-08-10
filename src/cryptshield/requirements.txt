@@ -1,1 +1,7 @@
 cryptography
+piexif
+pillow
+PyPDF2
+python-docx
+openpyxl
+mutagen
