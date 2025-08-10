@@ -9,6 +9,12 @@ from typing import List
 
 from cryptography.fernet import Fernet, InvalidToken
 
+try:
+    from .metadata_cleaner import clean_metadata, MetadataCleaner
+except ImportError:
+    # For direct script execution
+    from metadata_cleaner import clean_metadata, MetadataCleaner
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
 
@@ -416,6 +422,108 @@ def confirm(prompt: str) -> bool:
     return False
 
 
+def clean_file_metadata(*args):
+    """
+    Clean metadata from files while preserving primary functionality.
+    
+    This function removes metadata from various file formats including:
+    - Images: EXIF, GPS, camera info, comments
+    - Documents: Author, creation date, edit history, comments
+    - Multimedia: ID3 tags, artist, album, etc.
+    - PDFs: Document properties, metadata, annotations
+    """
+    
+    # Parse command line arguments
+    file_paths = []
+    preserve_essential = False
+    backup = True
+    verify = True
+    
+    for arg in args:
+        # Check if it's a boolean-like argument
+        if isinstance(arg, str):
+            if arg.lower() in ('true', 'yes', '1', 'on'):
+                if not file_paths:  # First non-file argument is preserve_essential
+                    preserve_essential = True
+                elif preserve_essential is not None:  # Second is backup
+                    backup = True
+                else:  # Third is verify
+                    verify = True
+                continue
+            elif arg.lower() in ('false', 'no', '0', 'off'):
+                if not file_paths:  # First non-file argument is preserve_essential
+                    preserve_essential = False
+                elif preserve_essential is not None:  # Second is backup
+                    backup = False
+                else:  # Third is verify
+                    verify = False
+                continue
+        
+        # Otherwise, treat as file path
+        file_paths.append(arg)
+    
+    # If we got boolean arguments, we need to re-parse correctly
+    # Arguments order: file_paths... preserve_essential backup verify
+    if len(args) > 1:
+        # Check if last few arguments are booleans
+        bool_args = []
+        file_args = list(args)
+        
+        # Process from the end to find boolean arguments
+        while file_args and isinstance(file_args[-1], str) and file_args[-1].lower() in ('true', 'false', 'yes', 'no', '1', '0', 'on', 'off'):
+            bool_args.insert(0, file_args.pop())
+        
+        file_paths = file_args
+        
+        # Parse boolean arguments
+        if len(bool_args) >= 1:
+            preserve_essential = bool_args[0].lower() in ('true', 'yes', '1', 'on')
+        if len(bool_args) >= 2:
+            backup = bool_args[1].lower() in ('true', 'yes', '1', 'on')
+        if len(bool_args) >= 3:
+            verify = bool_args[2].lower() in ('true', 'yes', '1', 'on')
+    
+    expanded_paths = expand_path(file_paths)
+    
+    if not expanded_paths:
+        logger.error("No valid files found to process.")
+        return
+    
+    logger.info(f"Starting metadata cleaning for {len(expanded_paths)} files...")
+    logger.info(f"Settings: preserve_essential={preserve_essential}, backup={backup}, verify={verify}")
+    
+    results = clean_metadata(
+        *expanded_paths,
+        preserve_essential=preserve_essential,
+        backup=backup,
+        verify=verify,
+        logger=logger
+    )
+    
+    # Summary statistics
+    successful = sum(1 for r in results if r.success)
+    verified = sum(1 for r in results if r.verified)
+    failed = len(results) - successful
+    
+    logger.info(f"Metadata cleaning completed:")
+    logger.info(f"  Successful: {successful}/{len(results)}")
+    if verify:
+        logger.info(f"  Verified: {verified}/{successful}")
+    if failed > 0:
+        logger.info(f"  Failed: {failed}")
+        
+    # List failed files
+    failed_files = [r for r in results if not r.success]
+    if failed_files:
+        logger.error("Failed to clean metadata from:")
+        for result in failed_files:
+            logger.error(f"  {result.file_path}: {result.error}")
+    
+    # Audit summary
+    total_metadata_removed = sum(len(r.metadata_removed) for r in results if r.success)
+    logger.info(f"AUDIT SUMMARY: Removed {total_metadata_removed} metadata entries from {successful} files")
+
+
 # Mapping commands to their respective functions
 COMMAND_MAP = {
     "delete": secure_delete,
@@ -423,6 +531,7 @@ COMMAND_MAP = {
     "decrypt": decrypt,
     "encrypt_text": encrypt_text,
     "decrypt_text": decrypt_text,
+    "clean_metadata": clean_file_metadata,
 }
 
 
@@ -440,7 +549,18 @@ def show_help():
             decrypt <path> <key> [--delete]: Decrypt encrypted files or directories.
             encrypt_text <text> <key>: Encrypt text using a key.
             decrypt_text <text> <key>: Decrypt encrypted text using a key.
+            clean_metadata <path>... [preserve_essential] [backup] [verify]: Clean metadata from files.
             help: Show this help message.
+            
+        Examples:
+            # Clean metadata from files
+            cryptshield clean_metadata /path/to/image.jpg /path/to/document.pdf
+            
+            # Clean metadata with essential preservation
+            cryptshield clean_metadata /path/to/file.jpg true true true
+            
+            # Clean without backup (not recommended)
+            cryptshield clean_metadata /path/to/file.pdf false false true
         """
     )
 
