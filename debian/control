@@ -8,5 +8,5 @@ Build-Depends: debhelper-compat (= 13), dh-python, python3, python3-setuptools
 
 Package: cryptshield
 Architecture: all
-Depends: python3, ${python3:Depends}, ${shlibs:Depends}, ${misc:Depends}, coreutils
+Depends: python3, ${python3:Depends}, ${shlibs:Depends}, ${misc:Depends}, coreutils, python3-pillow, python3-pycryptodome, python3-mutagen, python3-docx, python3-openpyxl
 Description: Cryptshield - Secure Encryption and Deletion Application

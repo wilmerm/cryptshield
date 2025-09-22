@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 import sys
 import os
 import subprocess
@@ -144,23 +145,26 @@ def encrypt(path: str, key: str, delete: bool = True):
             return
 
     if os.path.isdir(path):
+        dir_path = Path(path)
+        parent_dir = dir_path.parent
+        dir_name = dir_path.name
 
-        # First, compress the directory into a ZIP file
+        # Comprimir el directorio
         logger.info(f'Compressing directory "{path}"...')
-        subprocess.run(['zip', '-r', f'{path}.zip', path], check=True)
+        subprocess.run(['zip', '-r', f'{dir_path}.zip', dir_name], cwd=parent_dir, check=True)
 
         # Encrypt the ZIP file
-        encrypt(f'{path}.zip', key, delete=False)
+        encrypt(f'{dir_path}.zip', key, delete=False)
 
-        # Rename the encrypted ZIP file to '.zipencrypted'.
-        os.rename(f'{path}.zip.{ENCRYPTED}', f'{path}.{ZIPENCRYPTED}')
+        # Rename the encrypted ZIP file
+        os.rename(f'{dir_path}.zip.{ENCRYPTED}', f'{dir_path}.{ZIPENCRYPTED}')
 
-        # Delete the original directory and ZIP file
-        logger.info(f'Deleting "{path}.zip"...')
-        secure_delete(f'{path}.zip')
+        # Delete original ZIP and directory
+        logger.info(f'Deleting "{dir_path}.zip"...')
+        secure_delete(f'{dir_path}.zip')
         if delete:
-            logger.info(f'Deleting "{path}"...')
-            secure_delete(path)
+            logger.info(f'Deleting "{dir_path}"...')
+            secure_delete(dir_path)
 
     elif os.path.isfile(path) or os.path.islink(path):
         logger.info(f'Encrypting "{path}"...')
@@ -425,20 +429,20 @@ def confirm(prompt: str) -> bool:
 def clean_file_metadata(*args):
     """
     Clean metadata from files while preserving primary functionality.
-    
+
     This function removes metadata from various file formats including:
     - Images: EXIF, GPS, camera info, comments
     - Documents: Author, creation date, edit history, comments
     - Multimedia: ID3 tags, artist, album, etc.
     - PDFs: Document properties, metadata, annotations
     """
-    
+
     # Parse command line arguments
     file_paths = []
     preserve_essential = False
     backup = True
     verify = True
-    
+
     for arg in args:
         # Check if it's a boolean-like argument
         if isinstance(arg, str):
@@ -458,23 +462,23 @@ def clean_file_metadata(*args):
                 else:  # Third is verify
                     verify = False
                 continue
-        
+
         # Otherwise, treat as file path
         file_paths.append(arg)
-    
+
     # If we got boolean arguments, we need to re-parse correctly
     # Arguments order: file_paths... preserve_essential backup verify
     if len(args) > 1:
         # Check if last few arguments are booleans
         bool_args = []
         file_args = list(args)
-        
+
         # Process from the end to find boolean arguments
         while file_args and isinstance(file_args[-1], str) and file_args[-1].lower() in ('true', 'false', 'yes', 'no', '1', '0', 'on', 'off'):
             bool_args.insert(0, file_args.pop())
-        
+
         file_paths = file_args
-        
+
         # Parse boolean arguments
         if len(bool_args) >= 1:
             preserve_essential = bool_args[0].lower() in ('true', 'yes', '1', 'on')
@@ -482,16 +486,16 @@ def clean_file_metadata(*args):
             backup = bool_args[1].lower() in ('true', 'yes', '1', 'on')
         if len(bool_args) >= 3:
             verify = bool_args[2].lower() in ('true', 'yes', '1', 'on')
-    
+
     expanded_paths = expand_path(file_paths)
-    
+
     if not expanded_paths:
         logger.error("No valid files found to process.")
         return
-    
+
     logger.info(f"Starting metadata cleaning for {len(expanded_paths)} files...")
     logger.info(f"Settings: preserve_essential={preserve_essential}, backup={backup}, verify={verify}")
-    
+
     results = clean_metadata(
         *expanded_paths,
         preserve_essential=preserve_essential,
@@ -499,26 +503,26 @@ def clean_file_metadata(*args):
         verify=verify,
         logger=logger
     )
-    
+
     # Summary statistics
     successful = sum(1 for r in results if r.success)
     verified = sum(1 for r in results if r.verified)
     failed = len(results) - successful
-    
+
     logger.info(f"Metadata cleaning completed:")
     logger.info(f"  Successful: {successful}/{len(results)}")
     if verify:
         logger.info(f"  Verified: {verified}/{successful}")
     if failed > 0:
         logger.info(f"  Failed: {failed}")
-        
+
     # List failed files
     failed_files = [r for r in results if not r.success]
     if failed_files:
         logger.error("Failed to clean metadata from:")
         for result in failed_files:
             logger.error(f"  {result.file_path}: {result.error}")
-    
+
     # Audit summary
     total_metadata_removed = sum(len(r.metadata_removed) for r in results if r.success)
     logger.info(f"AUDIT SUMMARY: Removed {total_metadata_removed} metadata entries from {successful} files")
@@ -551,14 +555,14 @@ def show_help():
             decrypt_text <text> <key>: Decrypt encrypted text using a key.
             clean_metadata <path>... [preserve_essential] [backup] [verify]: Clean metadata from files.
             help: Show this help message.
-            
+
         Examples:
             # Clean metadata from files
             cryptshield clean_metadata /path/to/image.jpg /path/to/document.pdf
-            
+
             # Clean metadata with essential preservation
             cryptshield clean_metadata /path/to/file.jpg true true true
-            
+
             # Clean without backup (not recommended)
             cryptshield clean_metadata /path/to/file.pdf false false true
         """
