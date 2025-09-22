@@ -5,3 +5,4 @@ PyPDF2
 python-docx
 openpyxl
 mutagen
+PyPDF2

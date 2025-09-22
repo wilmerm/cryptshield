@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cryptshield"
-version = "1.1.0"
+version = "1.1.1"
 authors = [
     { name = "Wilmer Martinez" }
 ]
@@ -38,7 +38,8 @@ classifiers = [# https://pypi.org/classifiers/
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-  "cryptography",
+    "cryptography",
+    "Pillow",
 ]
 keywords = [
     "encryption",
@@ -49,6 +50,27 @@ keywords = [
     "cryptography",
     "cryptshield",
     "guardian",
+    "privacy",
+    "security",
+    "file",
+    "folder",
+    "data",
+    "protection",
+    "safety",
+    "safeguard",
+    "lock",
+    "unlock",
+    "erase",
+    "wipe",
+    "shred",
+    "scrub",
+    "clean",
+    "destroy",
+    "confidential",
+    "sensitive",
+    "information",
+    "safekeeping",
+    "cybersecurity"
 ]
 
 [project.urls]
@@ -62,4 +84,5 @@ Release = "https://github.com/wilmerm/cryptshield/releases"
 where = ["src"]
 include = ["cryptshield"]
 
-
+[project.scripts]
+cryptshield = "cryptshield.cryptshield:main"
